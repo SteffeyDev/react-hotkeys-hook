@@ -8,6 +8,7 @@ export declare type Options = {
     scope?: string;
     keyup?: boolean;
     keydown?: boolean;
+    debug?: boolean;
 };
 export declare function useHotkeys<T extends Element>(keys: string, callback: KeyHandler, options?: Options): React.MutableRefObject<T | null>;
 export declare function useHotkeys<T extends Element>(keys: string, callback: KeyHandler, deps?: any[]): React.MutableRefObject<T | null>;
