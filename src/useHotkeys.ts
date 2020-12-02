@@ -13,6 +13,7 @@ export type Options = {
   scope?: string;
   keyup?: boolean;
   keydown?: boolean;
+  debug?: boolean;
 };
 
 export function useHotkeys<T extends Element>(keys: string, callback: KeyHandler, options?: Options): React.MutableRefObject<T | null>;
@@ -24,17 +25,18 @@ export function useHotkeys<T extends Element>(keys: string, callback: KeyHandler
     options = undefined;
   }
 
+  const { enableOnTags, filter, keyup, keydown, debug } = options || {};
+  const ref = useRef<T | null>(null);
+
   // If they have loaded a custom scope using useHotkeyScope,
   // then restrict this hotkey to that scope
   if (!options?.scope && hotkeys.getScope() !== 'all') {
+    if (debug) console.debug(`[useHotkeys] Automatically assigning hotkeys '${keys}' to active scope '${hotkeys.getScope()}'`);
     options = {
       ...options,
       scope: hotkeys.getScope()
     };
   }
-
-  const { enableOnTags, filter, keyup, keydown } = options || {};
-  const ref = useRef<T | null>(null);
 
   // Always filter out events on these three tags, unless the enableOnTags prop says otherwise
   const blockTags = (['INPUT', 'TEXTAREA', 'SELECT'] as AvailableTags[])
@@ -42,16 +44,25 @@ export function useHotkeys<T extends Element>(keys: string, callback: KeyHandler
 
   const memoisedCallback = useCallback((keyboardEvent: KeyboardEvent, hotkeysEvent: HotkeysEvent) => {
     // If we have a filter, then exit early if the event does not match
-    if (filter && !filter(keyboardEvent)) return false;
+    if (filter && !filter(keyboardEvent)) {
+      if (debug) console.debug(`[useHotkeys] Keyboard event with key '${keyboardEvent.key}' ignored due to custom filter`);
+      return false;
+    }
 
     // Otherwise, if no filter, check if the event is on a tag that we want to ignore
     const targetTagName: string | undefined =
       (keyboardEvent.target as HTMLElement)?.tagName ||
       (keyboardEvent.srcElement as HTMLElement)?.tagName;
-    if (!filter && targetTagName && blockTags.includes(targetTagName as AvailableTags)) return false;
+    if (!filter && targetTagName && blockTags.includes(targetTagName as AvailableTags)) {
+      if (debug && targetTagName) console.debug(`[useHotkeys] Keyboard event with key '${keyboardEvent.key}' ignored because event target has tag '${targetTagName}'`);
+      return false;
+    }
 
     // If we have a valid ref, and that ref is not the active element, then exit
-    if (ref.current && document.activeElement !== ref.current) return false;
+    if (ref.current && document.activeElement !== ref.current) {
+      if (debug) console.debug(`[useHotkeys] Keyboard event with key '${keyboardEvent.key}' ignored because ref is not the active element`);
+      return false;
+    }
 
     callback(keyboardEvent, hotkeysEvent);
     return true;
@@ -62,6 +73,7 @@ export function useHotkeys<T extends Element>(keys: string, callback: KeyHandler
       (options as Options).keydown = false;
     }
 
+    if (debug) console.debug(`[useHotkeys] Creating new key binding for keys '${keys}' with options: '${JSON.stringify(options)}'`);
     hotkeys(keys, (options as Options) || {}, memoisedCallback);
 
     return () => hotkeys.unbind(keys, memoisedCallback);
